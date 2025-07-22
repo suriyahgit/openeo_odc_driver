@@ -2,3 +2,8 @@ requests
 datacube-explorer
 gunicorn
 werkzeug==2.2.2
+psycopg2
+datacube==1.8.10
+sqlalchemy<2.0
+
+

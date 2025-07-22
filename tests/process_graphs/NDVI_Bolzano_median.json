@@ -115,7 +115,7 @@
         "data": {
           "from_node": "1"
         },
-        "format": "GTIFF"
+        "format": "zarr"
       },
       "result": true
     }

@@ -27,6 +27,7 @@ dependencies:
 - gunicorn
 - flask
 - opencv
+- pyarrow>=14,<15
 - pip
 - pip:
     - openeo[localprocessing]

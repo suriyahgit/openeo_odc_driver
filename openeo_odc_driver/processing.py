@@ -352,6 +352,55 @@ def save_result(*args, **kwargs):
             _log.error("Wrtiting netcdf failed!")
         return
 
+    if out_format.lower() == 'zarr':
+        OUTPUT_FORMAT = '.zarr'
+        _log.debug("Saving result as Zarr format")
+        
+        if IS_BATCH_JOB:
+            from raster2stac import Raster2STAC
+            job_id = get_job_id()
+            
+            # Ensure temporal dimension exists for STAC
+            if len(data.openeo.temporal_dims) == 0:
+                t_dim = "time"
+                t_value = data.attrs.get("reduced_dimensions_min_values", {}).get(t_dim, None)
+                if t_value is None:
+                    t_value = np.datetime64('now')
+                data = data.expand_dims(dim={t_dim: [t_value]}, axis=0)
+            
+            # Generate Zarr with STAC metadata
+            rs2stac = Raster2STAC(
+                data=data,
+                collection_id=job_id,
+                description=f"openEO results for the job with id {job_id}",
+                collection_url=STAC_API_URL,
+                output_folder=RESULT_FOLDER,
+                bucket_file_prefix="OPENEO_RESULT/",
+                s3_upload=True,
+                bucket_name="eurac-eo",
+                aws_access_key=os.environ.get("AWS_ACCESS_KEY"),
+                aws_secret_key=os.environ.get("AWS_SECRET_KEY"),
+                aws_region="s3-eu-west-1",
+                write_collection_assets=True
+            ).generate_zarr_stac()
+            
+            # Post to STAC catalog
+            if POST_RESULTS_TO_STAC:
+                with open(f"{RESULT_FOLDER}/{job_id}.json", "r") as f:
+                    stac_collection = json.load(f)
+                requests.post(STAC_API_URL, json=stac_collection)
+                
+                with open(f"{RESULT_FOLDER}/inline_items.csv", "r") as f:
+                    for line in f:
+                        stac_item = json.loads(line)
+                        requests.post(f"{STAC_API_URL}/{job_id}/items", json=stac_item)
+            
+            return stac_collection
+        else:
+            # Direct Zarr output for synchronous requests
+            data.to_zarr(f"{RESULT_FOLDER}/result.zarr", mode="w")
+            return
+
     if out_format.lower() == 'json':
         self.out_format = '.json'
         self.mimeType = 'application/json'

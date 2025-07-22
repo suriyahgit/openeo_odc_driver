@@ -42,7 +42,9 @@ RUN conda --version
 
 COPY ./environment.yml /
 
-RUN conda env create -f /environment.yml
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
+    conda env create -f /environment.yml
 
 RUN git clone https://github.com/clausmichele/odc-tools.git
 RUN conda run -n openeo_odc_driver pip install odc-tools/apps/dc_tools
@@ -50,9 +52,11 @@ RUN conda run -n openeo_odc_driver pip install odc-tools/apps/dc_tools
 ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 
 # RUN pip install --requirement /requirements.txt
-RUN git clone https://github.com/interTwin-eu/openeo-processes-dask.git --recurse-submodules -b feature/load_stac_dev
+# RUN git clone https://github.com/Open-EO/openeo-processes-dask --recurse-submodules
 # RUN git clone https://github.com/interTwin-eu/openeo-processes.git
 # RUN mv openeo-processes openeo-processes-dask/specs/
+
+RUN git clone https://github.com/interTwin-eu/openeo-processes-dask.git --recurse-submodules -b feature/merge_cubes_issue
 
 RUN conda run -n openeo_odc_driver pip install openeo-processes-dask/.[implementations]
 
@@ -61,9 +65,9 @@ RUN conda run -n openeo_odc_driver pip install openeo-pg-parser-networkx/.
 
 RUN conda run -n openeo_odc_driver pip install adlfs
 
-RUN rm -rf /root/miniconda3/envs/openeo_odc_driver/lib/python3.11/site-packages/pydantic
+# RUN rm -rf /root/miniconda3/envs/openeo_odc_driver/lib/python3.11/site-packages/pydantic
 
-RUN conda run -n openeo_odc_driver pip install pydantic==2.8.2
+# RUN conda run -n openeo_odc_driver pip install pydantic==2.8.2
 
 
 COPY . /openeo_odc_driver
