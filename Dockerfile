@@ -16,6 +16,8 @@ RUN apt-get update && \
       build-essential \
       git \
       wget \
+      curl \
+      vim \
       ffmpeg \
       libsm6 \
       libxext6 \
