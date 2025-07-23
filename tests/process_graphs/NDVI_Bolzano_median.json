@@ -36,7 +36,7 @@
           "south": 46.488167410749696,
           "north": 46.49743990710044
         },
-        "id": "s2_l2a",
+        "id": "SENTINEL2_L2A",
         "bands": [
           "red",
           "nir"
@@ -115,7 +115,7 @@
         "data": {
           "from_node": "1"
         },
-        "format": "zarr"
+        "format": "GTIFF"
       },
       "result": true
     }

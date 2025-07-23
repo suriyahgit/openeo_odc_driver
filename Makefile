@@ -17,9 +17,6 @@ up: ## 1. Bring up your Docker environment
 
 	docker compose up -d openeo_odc_driver
 
-init: ## 2. Prepare the database
-	docker compose exec -T openeo_odc_driver conda run -n openeo_odc_driver datacube -v system init
-
 down: ## Bring down the system
 	docker compose down
 
