@@ -35,3 +35,4 @@ dependencies:
     - raster2stac
     - ujson
     - rio-stac
+    - zarr<=2.18.7

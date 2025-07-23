@@ -1,5 +1,6 @@
 services:
   openeo_odc_driver:
+    image: openeo_odc_driver:test  # <-- Fixed tag
     build:
       context: .
       dockerfile: Dockerfile

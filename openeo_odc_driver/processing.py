@@ -365,61 +365,83 @@ def save_result(*args, **kwargs):
     if out_format.lower() == 'zarr':
         OUTPUT_FORMAT = '.zarr'
         _log.debug("Saving result as Zarr format")
-        debug_path = f"{RESULT_FOLDER}/debug_before_zarr.nc"
-        data = clean_attributes(data)       
-        data.to_netcdf(debug_path)
         
-        if IS_BATCH_JOB:
-            from raster2stac import Raster2STAC
-            job_id = get_job_id()
+        try:
+            # Create a clean copy of the data (same as NetCDF)
+            data_to_save = data.copy(deep=False)
             
-            # Ensure temporal dimension exists for STAC
-            if len(data.openeo.temporal_dims) == 0:
-                t_dim = "time"
-                t_value = data.attrs.get("reduced_dimensions_min_values", {}).get(t_dim, None)
-                if t_value is None:
-                    t_value = np.datetime64('now')
-                data = data.expand_dims(dim={t_dim: [t_value]}, axis=0)
+            # Apply identical preprocessing steps as NetCDF
+            # 1. Clean problematic attributes
+            clean_attrs = {}
+            for attr, value in data_to_save.attrs.items():
+                if isinstance(value, (int, float, str, np.ndarray, np.number, list, tuple)):
+                    clean_attrs[attr] = value
+                else:
+                    clean_attrs[attr] = str(value)
+            data_to_save.attrs = clean_attrs
             
-            # Generate Zarr with STAC metadata
-            rs2stac = Raster2STAC(
-                data=data,
-                collection_id=job_id,
-                description=f"openEO results for the job with id {job_id}",
-                collection_url=STAC_API_URL,
-                output_folder=RESULT_FOLDER,
-                bucket_file_prefix="OPENEO_RESULT/",
-                s3_upload=True,
-                bucket_name="eurac-eo",
-                aws_access_key=os.environ.get("AWS_ACCESS_KEY"),
-                aws_secret_key=os.environ.get("AWS_SECRET_KEY"),
-                aws_region="s3-eu-west-1",
-                write_collection_assets=True
-            ).generate_zarr_stac()
+            # 2. Clean problematic coordinates
+            for coord in list(data_to_save.coords):
+                if data_to_save[coord].dtype == "object":
+                    data_to_save = data_to_save.drop_vars(coord)
             
-            # Post to STAC catalog
-            if POST_RESULTS_TO_STAC:
-                with open(f"{RESULT_FOLDER}/{job_id}.json", "r") as f:
-                    stac_collection = json.load(f)
-                requests.post(STAC_API_URL, json=stac_collection)
+            # 3. Handle time units if present
+            if 'time' in data_to_save.dims and 'units' in data_to_save.time.attrs:
+                data_to_save.time.attrs.pop('units', None)
+            
+            # Debug: Save intermediate state (optional)
+            debug_path = f"{RESULT_FOLDER}/debug_before_zarr.nc"
+            data_to_save.to_netcdf(debug_path)
+            _log.debug(f"Saved debug data to {debug_path}")
+            
+            if IS_BATCH_JOB:
+                from raster2stac import Raster2STAC
+                job_id = get_job_id()
                 
-                with open(f"{RESULT_FOLDER}/inline_items.csv", "r") as f:
-                    for line in f:
-                        stac_item = json.loads(line)
-                        requests.post(f"{STAC_API_URL}/{job_id}/items", json=stac_item)
-            
-            return {"output": f"{RESULT_FOLDER}/{job_id}.json"}
-        
-        else:
-            # Synchronous Zarr output
-            zarr_folder = f"{RESULT_FOLDER}/result.zarr"
-            zip_path = f"{RESULT_FOLDER}/result.zarr.zip"
-            
-            try:
-                # Save data
-                print(data)
+                # Ensure temporal dimension exists for STAC
+                if len(data_to_save.openeo.temporal_dims) == 0:
+                    t_dim = "time"
+                    t_value = data_to_save.attrs.get("reduced_dimensions_min_values", {}).get(t_dim, None)
+                    if t_value is None:
+                        t_value = np.datetime64('now')
+                    data_to_save = data_to_save.expand_dims(dim={t_dim: [t_value]}, axis=0)
                 
-                data.to_zarr(zarr_folder, mode="w")
+                # Generate Zarr with STAC metadata
+                rs2stac = Raster2STAC(
+                    data=data_to_save,
+                    collection_id=job_id,
+                    description=f"openEO results for the job with id {job_id}",
+                    collection_url=STAC_API_URL,
+                    output_folder=RESULT_FOLDER,
+                    bucket_file_prefix="OPENEO_RESULT/",
+                    s3_upload=True,
+                    bucket_name="eurac-eo",
+                    aws_access_key=os.environ.get("AWS_ACCESS_KEY"),
+                    aws_secret_key=os.environ.get("AWS_SECRET_KEY"),
+                    aws_region="s3-eu-west-1",
+                    write_collection_assets=True
+                ).generate_zarr_stac()
+                
+                # Post to STAC catalog if enabled
+                if POST_RESULTS_TO_STAC:
+                    with open(f"{RESULT_FOLDER}/{job_id}.json", "r") as f:
+                        stac_collection = json.load(f)
+                    requests.post(STAC_API_URL, json=stac_collection)
+                    
+                    with open(f"{RESULT_FOLDER}/inline_items.csv", "r") as f:
+                        for line in f:
+                            stac_item = json.loads(line)
+                            requests.post(f"{STAC_API_URL}/{job_id}/items", json=stac_item)
+                
+                return {"output": f"{RESULT_FOLDER}/{job_id}.json", "status": "success"}
+            
+            else:
+                # Synchronous Zarr output
+                zarr_folder = f"{RESULT_FOLDER}/result.zarr"
+                zip_path = f"{RESULT_FOLDER}/result.zarr.zip"
+                
+                # Save cleaned data to Zarr
+                data_to_save.to_zarr(zarr_folder, mode="w")
                 
                 # Create zip archive
                 shutil.make_archive(
@@ -429,22 +451,22 @@ def save_result(*args, **kwargs):
                     base_dir="result.zarr"
                 )
                 
-                # Clean up
+                # Clean up uncompressed folder
                 shutil.rmtree(zarr_folder)
                 
-                # Return JSON response with output path
                 return {
                     "output": zip_path,
                     "message": "Zarr output saved successfully",
                     "status": "success"
                 }
                 
-            except Exception as e:
-                _log.error(f"Failed to save Zarr output: {str(e)}")
-                return {
-                    "error": str(e),
-                    "status": "error"
-                }, 500
+        except Exception as e:
+            _log.error(f"Failed to save Zarr output: {str(e)}")
+            return {
+                "error": str(e),
+                "status": "error",
+                "code": 500
+            }
 
     if out_format.lower() == 'json':
         self.out_format = '.json'

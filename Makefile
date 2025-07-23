@@ -1,6 +1,8 @@
 ## You can follow the steps below in order to get yourself a local ODC.
 ## Start by running `setup` then you should have a system that is fully configured
 
+IMAGE_NAME := openeo_odc_driver:test
+
 .PHONY: help setup up down clean
 
 BBOX := 11,45,12,46
@@ -13,7 +15,7 @@ help: ## Print this help
 setup: build up test ## Run a full local/development setup
 
 test: ## Run the process graph test inside the container
-	docker compose exec openeo_odc_driver bash -c "cd /openeo_odc_driver && conda run -n openeo_odc_driver python tests/advanced_test_pg.py ./tests/process_graphs/nc_pg.json"
+	docker compose exec openeo_odc_driver bash -c "cd /openeo_odc_driver && conda run -n openeo_odc_driver python tests/zarr_test.py ./tests/process_graphs/zarr_process_graph.json"
 
 update: build up ## Update and bring up the environment
 
@@ -24,8 +26,11 @@ up: ## 1. Bring up your Docker environment
 down: ## Bring down the system
 	docker compose down
 
-build: ## Rebuild the base image
-	docker compose pull
+build: ## Rebuild the base image, deleting old one if exists
+	@if docker image inspect $(IMAGE_NAME) > /dev/null 2>&1; then \
+		echo "Removing existing image: $(IMAGE_NAME)"; \
+		docker rmi -f $(IMAGE_NAME); \
+	fi
 	docker compose build
 
 shell: ## Start an interactive shell

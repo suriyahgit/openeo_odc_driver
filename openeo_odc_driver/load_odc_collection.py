@@ -142,8 +142,9 @@ class LoadOdcCollection:
                 crs_query = copy.deepcopy(self.query)
                 crs_query.pop('product')
                 crs_query.pop('dask_chunks')
-                output_crs = dea_tools.datahandling.mostcommon_crs(dc=self.dc, product=self.collection, query=crs_query)
-                print(output_crs)
+                output_crs = "32632"
+                #output_crs = dea_tools.datahandling.mostcommon_crs(dc=self.dc, product=self.collection, query=crs_query)
+                print(f"Output CRS : {output_crs}, if empty, just assign EPSG:32632") #LITTLE HACK HERE 
                 self.query['output_crs'] = output_crs
                 self.query['resolution'] = [10,10]
                 self.query['dask_chunks'] = {"time":1,"x": 1000, "y":1000}
