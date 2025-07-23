@@ -1,9 +1,0 @@
-requests
-datacube-explorer==2.12.4
-gunicorn
-werkzeug==2.2.2
-psycopg2
-datacube
-sqlalchemy<2.0
-
-

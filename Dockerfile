@@ -46,9 +46,6 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
     conda env create -f /environment.yml
 
-RUN git clone https://github.com/clausmichele/odc-tools.git
-RUN conda run -n openeo_odc_driver pip install odc-tools/apps/dc_tools
-
 ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 
 # RUN pip install --requirement /requirements.txt
