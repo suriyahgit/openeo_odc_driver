@@ -398,8 +398,15 @@ def save_result(*args, **kwargs):
             return stac_collection
         else:
             # Direct Zarr output for synchronous requests
-            data.to_zarr(f"{RESULT_FOLDER}/result.zarr", mode="w")
-            return
+            zarr_folder = "result.zarr"
+            zip_file = "result.zarr.zip"
+        
+            data.to_zarr(zarr_folder, mode="w")
+        
+            # Zip the .zarr directory
+            shutil.make_archive(base_name=zip_file.replace(".zip", ""), format="zip", root_dir=zarr_folder)
+        
+            return zip_file
 
     if out_format.lower() == 'json':
         self.out_format = '.json'
