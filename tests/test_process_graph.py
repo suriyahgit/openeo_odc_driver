@@ -14,7 +14,7 @@ if len(sys.argv) != 2:
 process_graph = sys.argv[1]
 with open(process_graph) as f:
     d = json.load(f)
-res = requests.post('http://0.0.0.0:5001/graph', json=d)
+res = requests.post('http://localhost:5000/graph', json=d)
 print(res)
 print(res.headers['content-type'])
 print('Result stored in the Docker folder set by RESULT_FOLDER_PATH in config.py (default: ~/tmp/ ): ',res.json()['output'])

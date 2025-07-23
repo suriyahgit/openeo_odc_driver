@@ -19,6 +19,7 @@ from openeo_pg_parser_networkx.process_registry import Process
 from openeo_processes_dask.process_implementations.core import process
 from openeo_processes_dask.process_implementations.data_model import RasterCube
 from load_odc_collection import LoadOdcCollection
+import shutil
 
 import log_jobid
 from config import *
@@ -384,29 +385,41 @@ def save_result(*args, **kwargs):
                 write_collection_assets=True
             ).generate_zarr_stac()
             
-            # Post to STAC catalog
             if POST_RESULTS_TO_STAC:
-                with open(f"{RESULT_FOLDER}/{job_id}.json", "r") as f:
-                    stac_collection = json.load(f)
-                requests.post(STAC_API_URL, json=stac_collection)
-                
-                with open(f"{RESULT_FOLDER}/inline_items.csv", "r") as f:
-                    for line in f:
-                        stac_item = json.loads(line)
-                        requests.post(f"{STAC_API_URL}/{job_id}/items", json=stac_item)
+                try:
+                    response = requests.post(STAC_API_URL, json=stac_collection_to_post)
+                    response.raise_for_status()  # Raises exception for 4XX/5XX status codes
+                    
+                    with open(f"{RESULT_FOLDER}/inline_items.csv", "r") as f:
+                        for line in f:
+                            stac_item = json.loads(line)
+                            item_response = requests.post(f"{STAC_API_URL}/{job_id}/items", json=stac_item)
+                            item_response.raise_for_status()
+                except requests.exceptions.RequestException as e:
+                    _log.error(f"Failed to post to STAC API: {e}")
             
-            return stac_collection
+            return {"output": f"STAC collection created at {STAC_API_URL}/{job_id}"}
         else:
             # Direct Zarr output for synchronous requests
-            zarr_folder = "result.zarr"
-            zip_file = "result.zarr.zip"
-        
+            zarr_folder = os.path.join(RESULT_FOLDER, "result.zarr")
+            zip_file = os.path.join(RESULT_FOLDER, "result.zarr.zip")
+            
+            # Remove existing files if they exist
+            if os.path.exists(zarr_folder):
+                shutil.rmtree(zarr_folder)
+            if os.path.exists(zip_file):
+                os.remove(zip_file)
+            
             data.to_zarr(zarr_folder, mode="w")
-        
+            
             # Zip the .zarr directory
-            shutil.make_archive(base_name=zip_file.replace(".zip", ""), format="zip", root_dir=zarr_folder)
+            shutil.make_archive(
+                base_name=os.path.join(RESULT_FOLDER, "result.zarr"),
+                format="zip",
+                root_dir=RESULT_FOLDER,
+                base_dir="result.zarr"
+            )
         
-            return zip_file
 
     if out_format.lower() == 'json':
         self.out_format = '.json'
