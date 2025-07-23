@@ -10,12 +10,13 @@ help: ## Print this help
 	@echo
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
-setup: build up init product index explorer ## Run a full local/development setup
-update: build up ## Run a full local/development setup
+setup: build up ## Run a full local/development setup
+
+update: build up ## Update and bring up the environment
 
 up: ## 1. Bring up your Docker environment
 
-	docker compose up -d openeo_odc_driver
+	docker compose up -d --remove-orphans openeo_odc_driver
 
 down: ## Bring down the system
 	docker compose down
@@ -32,3 +33,8 @@ clean: ## Delete everything
 
 logs: ## Show the logs from the stack
 	docker compose logs --follow
+
+
+
+
+

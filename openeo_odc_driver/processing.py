@@ -406,7 +406,7 @@ def save_result(*args, **kwargs):
             # Zip the .zarr directory
             shutil.make_archive(base_name=zip_file.replace(".zip", ""), format="zip", root_dir=zarr_folder)
         
-            return zip_file
+            return
 
     if out_format.lower() == 'json':
         self.out_format = '.json'
