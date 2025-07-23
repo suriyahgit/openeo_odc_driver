@@ -10,7 +10,10 @@ help: ## Print this help
 	@echo
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
-setup: build up ## Run a full local/development setup
+setup: build up test ## Run a full local/development setup
+
+test: ## Run the process graph test inside the container
+	docker compose exec openeo_odc_driver bash -c "cd /openeo_odc_driver && conda run -n openeo_odc_driver python tests/advanced_test_pg.py ./tests/process_graphs/nc_pg.json"
 
 update: build up ## Update and bring up the environment
 
@@ -33,8 +36,5 @@ clean: ## Delete everything
 
 logs: ## Show the logs from the stack
 	docker compose logs --follow
-
-
-
 
 

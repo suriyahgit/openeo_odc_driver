@@ -19,6 +19,7 @@ from openeo_pg_parser_networkx.process_registry import Process
 from openeo_processes_dask.process_implementations.core import process
 from openeo_processes_dask.process_implementations.data_model import RasterCube
 from load_odc_collection import LoadOdcCollection
+import shutil
 
 import log_jobid
 from config import *
@@ -317,44 +318,56 @@ def save_result(*args, **kwargs):
 
         return
 
-    if out_format.lower() in ['netcdf','nc']:
+    if out_format.lower() in ['netcdf', 'nc']:
         OUTPUT_FORMAT = '.nc'
-        _log.debug(kwargs)
+        _log.debug(f"Saving NetCDF with kwargs: {kwargs}")
+        
+        output_path = f"{RESULT_FOLDER}/result.nc"
+        
         try:
-            data.to_netcdf(RESULT_FOLDER + "/result.nc")
-            return
+            # Create a clean copy of the data
+            data_to_save = data.copy(deep=False)
+            
+            # Clean problematic attributes
+            clean_attrs = {}
+            for attr, value in data_to_save.attrs.items():
+                if isinstance(value, (int, float, str, np.ndarray, np.number, list, tuple)):
+                    clean_attrs[attr] = value
+                else:
+                    clean_attrs[attr] = str(value)
+            data_to_save.attrs = clean_attrs
+            
+            # Clean problematic coordinates
+            for coord in list(data_to_save.coords):
+                if data_to_save[coord].dtype == "object":
+                    data_to_save = data_to_save.drop_vars(coord)
+            
+            # Handle time units if present
+            if 'time' in data_to_save.dims and 'units' in data_to_save.time.attrs:
+                data_to_save.time.attrs.pop('units', None)
+            
+            # Save with basic encoding (removed compression for compatibility)
+            data_to_save.to_netcdf(output_path)
+            
+            return {"output": output_path, "status": "success"}
+            
         except Exception as e:
-            _log.info(e)
-            _log.info("Wrtiting netcdf failed, trying another time....")
-            pass
-        try:
-            if 'units' in data.time.attrs:
-                data.time.attrs.pop('units', None) #TODO: use .openeo to get temporal dims
-            data.to_netcdf(RESULT_FOLDER + "/result.nc")
-        except Exception as e:
-            _log.info(e)
-            _log.info("Wrtiting netcdf failed, trying another time....")
-            pass
-        try:
-            # Remove problematic attributes and coordinates, which prevent to write a valid netCDF file
-            for at in data.attrs:
-                # allowed types: str, Number, ndarray, number, list, tuple
-                if not isinstance(data.attrs[at], (int, float, str, np.ndarray, list, tuple)):
-                    data.attrs[at] = str(data.attrs[at])
-
-            for c in data.coords:
-                if data[c].dtype=="object":
-                    data = data.drop_vars(c)            
-
-            data.to_netcdf(RESULT_FOLDER + "/result.nc")
-        except Exception as e:
-            _log.error(e)
-            _log.error("Wrtiting netcdf failed!")
-        return
+            # Modified error logging without exc_info
+            _log.error(f"Failed to save NetCDF: {str(e)}")
+            _log.error(f"Error details: {type(e).__name__} at line {e.__traceback__.tb_lineno}")
+            
+            return {
+                "error": f"NetCDF save failed: {str(e)}",
+                "status": "error",
+                "code": 500
+            }
 
     if out_format.lower() == 'zarr':
         OUTPUT_FORMAT = '.zarr'
         _log.debug("Saving result as Zarr format")
+        debug_path = f"{RESULT_FOLDER}/debug_before_zarr.nc"
+        data = clean_attributes(data)       
+        data.to_netcdf(debug_path)
         
         if IS_BATCH_JOB:
             from raster2stac import Raster2STAC
@@ -395,18 +408,43 @@ def save_result(*args, **kwargs):
                         stac_item = json.loads(line)
                         requests.post(f"{STAC_API_URL}/{job_id}/items", json=stac_item)
             
-            return stac_collection
+            return {"output": f"{RESULT_FOLDER}/{job_id}.json"}
+        
         else:
-            # Direct Zarr output for synchronous requests
-            zarr_folder = "result.zarr"
-            zip_file = "result.zarr.zip"
-        
-            data.to_zarr(zarr_folder, mode="w")
-        
-            # Zip the .zarr directory
-            shutil.make_archive(base_name=zip_file.replace(".zip", ""), format="zip", root_dir=zarr_folder)
-        
-            return
+            # Synchronous Zarr output
+            zarr_folder = f"{RESULT_FOLDER}/result.zarr"
+            zip_path = f"{RESULT_FOLDER}/result.zarr.zip"
+            
+            try:
+                # Save data
+                print(data)
+                
+                data.to_zarr(zarr_folder, mode="w")
+                
+                # Create zip archive
+                shutil.make_archive(
+                    base_name=os.path.join(RESULT_FOLDER, "result.zarr"),
+                    format="zip",
+                    root_dir=RESULT_FOLDER,
+                    base_dir="result.zarr"
+                )
+                
+                # Clean up
+                shutil.rmtree(zarr_folder)
+                
+                # Return JSON response with output path
+                return {
+                    "output": zip_path,
+                    "message": "Zarr output saved successfully",
+                    "status": "success"
+                }
+                
+            except Exception as e:
+                _log.error(f"Failed to save Zarr output: {str(e)}")
+                return {
+                    "error": str(e),
+                    "status": "error"
+                }, 500
 
     if out_format.lower() == 'json':
         self.out_format = '.json'

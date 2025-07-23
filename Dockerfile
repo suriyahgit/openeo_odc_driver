@@ -46,7 +46,7 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
     conda env create -f /environment.yml
 
-ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
+# ADD "https://www.random.org/cgi-bin/randbyte?nbytes=10&format=h" skipcache
 
 # RUN pip install --requirement /requirements.txt
 # RUN git clone https://github.com/Open-EO/openeo-processes-dask --recurse-submodules
