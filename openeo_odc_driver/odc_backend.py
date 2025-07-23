@@ -34,6 +34,10 @@ def error500(error):
 def error400(error):
     return error, 400
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok"}), 200
+
 
 @app.route('/graph', methods=['POST'])
 def process_graph():
