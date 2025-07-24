@@ -86,10 +86,7 @@ EXTERNAL_STAC_COLLECTION = {
         "swir16",
         "swir22",
         "wvp"],
-        "properties": {
-            "proj:epsg": 32632,  # Standard EPSG code for UTM Zone 32N (used by Sentinel-2 in Europe)
-        },
-        "default_crs": "EPSG:32632"
+        "properties": None
     },
     "ERA5_REANALYSIS": {
      "href":"https://planetarycomputer.microsoft.com/api/stac/v1/collections/era5-pds",

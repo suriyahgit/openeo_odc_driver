@@ -328,7 +328,7 @@ def save_result(*args, **kwargs):
             # Create a clean copy of the data
             data_to_save = data.copy(deep=False)
             
-            # Clean problematic attributes
+            # Remove problematic attributes and coordinates, which prevent to write a valid netCDF file
             clean_attrs = {}
             for attr, value in data_to_save.attrs.items():
                 if isinstance(value, (int, float, str, np.ndarray, np.number, list, tuple)):
@@ -337,14 +337,13 @@ def save_result(*args, **kwargs):
                     clean_attrs[attr] = str(value)
             data_to_save.attrs = clean_attrs
             
-            # Clean problematic coordinates
             for coord in list(data_to_save.coords):
                 if data_to_save[coord].dtype == "object":
                     data_to_save = data_to_save.drop_vars(coord)
             
             # Handle time units if present
             if 'time' in data_to_save.dims and 'units' in data_to_save.time.attrs:
-                data_to_save.time.attrs.pop('units', None)
+                data_to_save.time.attrs.pop('units', None) #TODO: use .openeo to get temporal dims
             
             # Save with basic encoding (removed compression for compatibility)
             data_to_save.to_netcdf(output_path)
