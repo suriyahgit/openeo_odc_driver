@@ -15,12 +15,12 @@ help: ## Print this help
 setup: build up test ## Run a full local/development setup
 
 test: ## Run the process graph test inside the container
+	docker compose exec openeo_odc_driver bash -c "cd /openeo_odc_driver && conda run -n openeo_odc_driver pytest tests/pytests.py"
 	docker compose exec openeo_odc_driver bash -c "cd /openeo_odc_driver && conda run -n openeo_odc_driver python tests/zarr_test.py ./tests/process_graphs/zarr_process_graph.json"
 
 update: build up ## Update and bring up the environment
 
 up: ## 1. Bring up your Docker environment
-
 	docker compose up -d --remove-orphans openeo_odc_driver
 
 down: ## Bring down the system
@@ -41,5 +41,3 @@ clean: ## Delete everything
 
 logs: ## Show the logs from the stack
 	docker compose logs --follow
-
-

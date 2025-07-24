@@ -28,6 +28,7 @@ dependencies:
 - flask
 - opencv
 - pyarrow>=14,<15
+- pytest
 - pip
 - pip:
     - openeo[localprocessing]
